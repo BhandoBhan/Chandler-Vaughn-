@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Thrift Ledger</title>
+  <meta name="description" content="Inventory, sales and profit tracking for vintage resellers.">
+  <meta name="theme-color" content="#b4532a">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#/dashboard">
+      <img src="icon.svg" alt="" width="28" height="28">
+      <span id="brand-name">Thrift Ledger</span>
+    </a>
+    <a class="btn btn-primary btn-add" href="#/item/new">+ Add item</a>
+  </header>
+
+  <nav class="tabs" aria-label="Main">
+    <a href="#/dashboard" data-route="dashboard"><span aria-hidden="true">◧</span> Dashboard</a>
+    <a href="#/inventory" data-route="inventory"><span aria-hidden="true">▤</span> Inventory</a>
+    <a href="#/sales" data-route="sales"><span aria-hidden="true">$</span> Sales</a>
+    <a href="#/tools" data-route="tools"><span aria-hidden="true">⚖</span> Tools</a>
+    <a href="#/settings" data-route="settings"><span aria-hidden="true">⚙</span> Settings</a>
+  </nav>
+
+  <main id="view" tabindex="-1"></main>
+
+  <dialog id="dialog"><div id="dialog-body"></div></dialog>
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

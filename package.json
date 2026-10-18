@@ -1,0 +1,11 @@
+{
+  "name": "thrift-ledger",
+  "version": "1.0.0",
+  "description": "Inventory, sales and profit tracking for vintage resellers. Offline-first, no backend.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node scripts/serve.js",
+    "test": "node --test test/*.test.js"
+  }
+}

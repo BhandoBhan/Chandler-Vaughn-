@@ -1,0 +1,11 @@
+{
+  "name": "Thrift Ledger — Vintage Reseller Toolkit",
+  "short_name": "Thrift Ledger",
+  "start_url": "./index.html#/dashboard",
+  "display": "standalone",
+  "background_color": "#f6efe3",
+  "theme_color": "#b4532a",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
