@@ -1,4 +1,4 @@
-const TOKEN_KEY = 'pickup-soccer-token';
+const TOKEN_KEY = 'box2box-token';
 
 function readToken() {
   try {

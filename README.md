@@ -1,4 +1,6 @@
-# Pickup Soccer
+# Box 2 Box
+
+**From the box to the full pitch.**
 
 A web app for local soccer players to find and schedule pickup games near them, in three formats, plus
 **wager matches** where everyone pays an entry fee and the winning team splits the pot.
@@ -69,7 +71,7 @@ Set these as environment variables.
 | Variable                    | Default                    | What it does |
 | --------------------------- | -------------------------- | ------------ |
 | `PORT`                      | `3000`                     | Port the server listens on. |
-| `DATABASE_PATH`             | `data/pickup-soccer.db`    | SQLite database file. |
+| `DATABASE_PATH`             | `data/box2box.db`          | SQLite database file. |
 | `WAGERS_ENABLED`            | `true`                     | Set to `false` to turn off wager matches completely. |
 | `PLATFORM_FEE_PERCENT`      | `10`                       | Share of each wager pot the platform keeps. Each game locks in the rate it was created with. |
 | `WAGER_MIN_ENTRY_FEE_CENTS` | `100`                      | Minimum entry fee ($1). |

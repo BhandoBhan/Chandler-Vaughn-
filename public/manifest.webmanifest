@@ -1,10 +1,10 @@
 {
-  "name": "Pickup Soccer",
-  "short_name": "Pickup",
-  "description": "Find and schedule local pickup soccer games.",
+  "name": "Box 2 Box",
+  "short_name": "Box 2 Box",
+  "description": "From the box to the full pitch. Find and schedule local pickup soccer games.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f4f6f3",
+  "background_color": "#f3f6f2",
   "theme_color": "#0b7a4b",
   "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
 }

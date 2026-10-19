@@ -1,8 +1,8 @@
 {
-  "name": "pickup-soccer",
+  "name": "box-2-box",
   "version": "0.1.0",
   "private": true,
-  "description": "Find and schedule local pickup soccer games: 3v3, 8v8, 11v11, and wager matches.",
+  "description": "Box 2 Box: find and schedule local pickup soccer games — 3v3, 8v8, 11v11, and wager matches.",
   "main": "src/server.js",
   "engines": {
     "node": ">=22.13"

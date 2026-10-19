@@ -24,6 +24,6 @@ maintain();
 setInterval(maintain, MAINTENANCE_INTERVAL_MS).unref();
 
 app.listen(settings.port, () => {
-  console.log(`Pickup Soccer running at http://localhost:${settings.port}`);
+  console.log(`Box 2 Box running at http://localhost:${settings.port}`);
   if (settings.paymentsMode === 'demo') console.log('Payments: demo mode (play money only)');
 });

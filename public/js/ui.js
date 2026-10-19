@@ -204,7 +204,7 @@ export function emptyState(title, body, action) {
 
 export function loadPref(key, fallback) {
   try {
-    const raw = localStorage.getItem(`pickup-soccer-${key}`);
+    const raw = localStorage.getItem(`box2box-${key}`);
     return raw ? JSON.parse(raw) : fallback;
   } catch {
     return fallback;
@@ -213,7 +213,7 @@ export function loadPref(key, fallback) {
 
 export function savePref(key, value) {
   try {
-    localStorage.setItem(`pickup-soccer-${key}`, JSON.stringify(value));
+    localStorage.setItem(`box2box-${key}`, JSON.stringify(value));
   } catch {
     // Preferences are a convenience; ignore storage failures.
   }

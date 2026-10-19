@@ -152,6 +152,14 @@ p {
   margin-right: auto;
 }
 
+.brand-2 {
+  display: inline-block;
+  padding: 0 0.3em;
+  border-radius: 6px;
+  background: var(--gold);
+  color: #3d2c00;
+}
+
 .topnav {
   display: none;
   gap: 0.25rem;

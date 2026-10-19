@@ -55,7 +55,7 @@ function listFromEnv(env, name) {
 function loadSettings(env = process.env) {
   return {
     port: numberFromEnv(env, 'PORT', 3000),
-    databasePath: env.DATABASE_PATH || path.join(__dirname, '..', 'data', 'pickup-soccer.db'),
+    databasePath: env.DATABASE_PATH || path.join(__dirname, '..', 'data', 'box2box.db'),
     // "demo" credits wallets with play money. Real money needs a licensed
     // payment processor wired into src/payments.js (see README).
     paymentsMode: env.PAYMENTS_MODE || 'demo',
