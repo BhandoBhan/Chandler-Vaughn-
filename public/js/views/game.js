@@ -2,6 +2,7 @@ import { api } from '../api.js';
 import { session, refreshUser } from '../session.js';
 import { pitch, zoneLabel } from '../pitch.js';
 import { createMap, dot, directionsUrl, FORMAT_COLORS } from '../map.js';
+import { lineupBoard, formationSpots } from '../lineup.js';
 import {
   h,
   icon,
@@ -11,7 +12,6 @@ import {
   fullDateLabel,
   formatBadge,
   phaseBadge,
-  avatar,
   actionButton,
   bindForm,
   formError,
@@ -22,6 +22,12 @@ import {
 export async function renderGame(view, ctx) {
   const id = ctx.params[0];
   let game = (await api.get(`/games/${id}`)).game;
+  // Lineup board state: which team is shown and which player a captain has
+  // picked up to move.
+  let shownTeam = (game.viewer && game.viewer.team) || 'A';
+  let selectedId = null;
+  let busy = false;
+  let teamsEl = null;
   if (!ctx.mount(build())) return;
   drawMap();
 
@@ -36,6 +42,13 @@ export async function renderGame(view, ctx) {
     if (game.isWager) await refreshUser();
     rerender(next);
     if (message) toast(message, 'success');
+  }
+
+  // Lineup changes only redraw the board, not the whole page.
+  async function updateLineup(path, body, message) {
+    game = (await api.post(`/games/${id}${path}`, body)).game;
+    renderTeams();
+    toast(message, 'success');
   }
 
   function drawMap() {
@@ -68,7 +81,7 @@ export async function renderGame(view, ctx) {
       h(
         'div',
         { class: 'game-layout' },
-        h('div', { class: 'game-main' }, statusNotice(), teamsSection(viewer), resultSection(viewer), detailsSection()),
+        h('div', { class: 'game-main' }, statusNotice(), teamsSection(), resultSection(viewer), detailsSection()),
         h('aside', { class: 'game-side' }, game.isWager ? wagerPanel() : null, actionsPanel(viewer)),
       ),
     );
@@ -113,44 +126,52 @@ export async function renderGame(view, ctx) {
     );
   }
 
-  function teamsSection(viewer) {
-    return h(
-      'section',
-      { class: 'card' },
-      h('div', { class: 'section-head' }, h('h2', {}, 'Teams'), h('span', { class: 'muted' }, `${game.playerCount}/${game.capacity} players`)),
-      h('div', { class: 'teams' }, teamColumn('A', viewer), teamColumn('B', viewer)),
-      joinHelp(viewer),
-    );
+  function teamsSection() {
+    teamsEl = h('section', { class: 'card lineup' });
+    renderTeams();
+    return teamsEl;
   }
 
-  function teamColumn(team, viewer) {
-    const players = game.teams[team];
-    const open = game.playersPerTeam - players.length;
-    const isWinner = game.result && game.result.status === 'confirmed' && game.result.winner === team;
-    return h(
-      'div',
-      { class: `team team-${team.toLowerCase()}${isWinner ? ' is-winner' : ''}` },
+  function renderTeams() {
+    const viewer = game.viewer;
+    const team = shownTeam;
+    const winner = game.result && game.result.status === 'confirmed' ? game.result.winner : null;
+
+    const tabs = ['A', 'B'].map((t) =>
       h(
-        'div',
-        { class: 'team-head' },
-        h('h3', {}, `Team ${team}`, isWinner ? h('span', { class: 'badge win' }, icon('trophy', { size: 13 }), 'Winner') : null),
-        h('span', { class: 'muted' }, `${players.length}/${game.playersPerTeam}`),
+        'button',
+        {
+          type: 'button',
+          'aria-pressed': String(t === team),
+          onClick: () => {
+            shownTeam = t;
+            selectedId = null;
+            renderTeams();
+          },
+        },
+        winner === t ? icon('trophy', { size: 14 }) : null,
+        `Team ${t}`,
+        h('span', { class: 'tab-count' }, `${game.teams[t].length}/${game.playersPerTeam}`),
       ),
-      h(
-        'ul',
-        { class: 'roster' },
-        players.map((p) =>
-          h(
-            'li',
-            { class: session.user && p.id === session.user.id ? 'is-me' : null },
-            avatar(p.displayName),
-            h('span', { class: 'player-name' }, p.displayName, session.user && p.id === session.user.id ? h('span', { class: 'muted' }, ' (you)') : null),
-            p.isCaptain ? h('span', { class: 'captain', title: 'Captain' }, 'C') : null,
-            p.position ? h('span', { class: 'player-pos' }, p.position) : null,
-          ),
-        ),
-        open > 0 ? h('li', { class: 'open-spot' }, h('span', { class: 'avatar avatar-empty' }, '+'), `${open} open spot${open === 1 ? '' : 's'}`) : null,
-      ),
+    );
+
+    let formation = h('span', { class: 'formation-label' }, game.formations[team]);
+    if (viewer && viewer.canSetFormation && viewer.team === team) {
+      formation = h(
+        'select',
+        { class: 'formation-select', 'aria-label': 'Formation', value: game.formations[team] },
+        Object.keys(session.meta.formations[game.format]).map((name) => h('option', { value: name }, name)),
+      );
+      formation.addEventListener('change', () =>
+        run(() => updateLineup('/lineup/formation', { team, formation: formation.value }, `Formation set to ${formation.value}`)),
+      );
+    }
+
+    teamsEl.replaceChildren(
+      h('div', { class: 'section-head' }, h('h2', {}, 'Lineups'), h('span', { class: 'muted' }, `${game.playerCount}/${game.capacity} players`)),
+      h('div', { class: 'lineup-bar' }, h('div', { class: 'segmented', role: 'group', 'aria-label': 'Team' }, tabs), formation),
+      lineupBoard({ game, team, selectedId, canTap: (index, player) => canTap(team, player), onTap: (index, player) => onSpot(team, index, player) }),
+      h('p', { class: 'lineup-hint' }, lineupHint(team)),
       viewer && viewer.canJoinTeam[team]
         ? actionButton(
             game.isWager ? `Join Team ${team} · ${money(game.wager.entryFeeCents)}` : `Join Team ${team}`,
@@ -158,7 +179,81 @@ export async function renderGame(view, ctx) {
             { class: 'btn btn-primary btn-block' },
           )
         : null,
+      joinHelp(viewer),
     );
+  }
+
+  function gameOpen() {
+    return game.status === 'scheduled' && (game.phase === 'upcoming' || game.phase === 'live');
+  }
+
+  function canTap(team, player) {
+    const viewer = game.viewer;
+    if (!session.user) return !player && gameOpen();
+    if (!viewer.joined) return !player && viewer.canJoinTeam[team];
+    if (viewer.team !== team || !viewer.canEditLineup) return false;
+    if (viewer.isCaptain) return true;
+    return !player;
+  }
+
+  function lineupHint(team) {
+    const viewer = game.viewer;
+    if (!session.user) return gameOpen() ? 'Tap an open spot to log in and claim it.' : '';
+    if (!viewer.joined) {
+      if (!viewer.canJoinTeam[team]) return '';
+      return game.isWager
+        ? `Tap an open spot to join Team ${team} in that position (${money(game.wager.entryFeeCents)} entry).`
+        : `Tap an open spot to join Team ${team} in that position.`;
+    }
+    if (viewer.team !== team) return `You're on Team ${viewer.team}.`;
+    if (!viewer.canEditLineup) return 'The lineup is locked.';
+    if (viewer.isCaptain) {
+      return selectedId
+        ? 'Now tap the spot to move them to. Tapping a teammate swaps the two.'
+        : "You're captain: tap a player, then a spot, to move or swap them.";
+    }
+    return 'Tap an open spot to change your position.';
+  }
+
+  // Runs one lineup action at a time and reports failures.
+  async function run(action) {
+    if (busy) return;
+    busy = true;
+    try {
+      await action();
+    } catch (err) {
+      toast(err.message, 'error');
+      renderTeams();
+    } finally {
+      busy = false;
+    }
+  }
+
+  function onSpot(team, index, player) {
+    const viewer = game.viewer;
+    const pos = formationSpots(game, team)[index].pos;
+    if (!session.user) {
+      ctx.navigate(`/login?next=/game/${game.id}`);
+      return;
+    }
+    if (!viewer.joined) {
+      if (game.isWager && !window.confirm(`Join Team ${team} as ${pos}? Your ${money(game.wager.entryFeeCents)} entry fee is held in escrow until the result is settled.`)) return;
+      run(() => act('/join', { team, slot: index }, `You're in at ${pos}!`));
+      return;
+    }
+    if (viewer.isCaptain && selectedId === null && player) {
+      selectedId = player.id;
+      renderTeams();
+      return;
+    }
+    if (player && player.id === selectedId) {
+      selectedId = null;
+      renderTeams();
+      return;
+    }
+    const playerId = selectedId ?? session.user.id;
+    selectedId = null;
+    run(() => updateLineup('/lineup/move', { playerId, slot: index }, player ? 'Players swapped' : `Moved to ${pos}`));
   }
 
   function joinHelp(viewer) {

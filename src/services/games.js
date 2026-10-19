@@ -1,6 +1,6 @@
 'use strict';
 
-const { FORMATS } = require('../config');
+const { FORMATS, FORMATIONS, DEFAULT_FORMATIONS } = require('../config');
 const { transaction } = require('../db');
 const { distanceMiles } = require('../geo');
 const { HttpError, assertAllowed } = require('../http-error');
@@ -35,7 +35,7 @@ function requireGame(db, id) {
 function getRoster(db, gameId) {
   return db
     .prepare(
-      `SELECT gp.user_id, gp.team, gp.joined_at, u.display_name, u.skill_level, u.position
+      `SELECT gp.user_id, gp.team, gp.slot, gp.joined_at, u.display_name, u.skill_level, u.position
        FROM game_players gp JOIN users u ON u.id = gp.user_id
        WHERE gp.game_id = ? ORDER BY gp.joined_at, gp.rowid`,
     )
@@ -82,6 +82,66 @@ function isFull(game, roster) {
   const perTeam = FORMATS[game.format].playersPerTeam;
   const counts = teamCounts(roster);
   return counts.A >= perTeam && counts.B >= perTeam;
+}
+
+// ---------------------------------------------------------------------------
+// Lineups
+
+function formationName(game, team) {
+  const name = team === 'A' ? game.formation_a : game.formation_b;
+  return Object.hasOwn(FORMATIONS[game.format], name ?? '') ? name : DEFAULT_FORMATIONS[game.format];
+}
+
+function formationSpots(game, team) {
+  return FORMATIONS[game.format][formationName(game, team)];
+}
+
+// Which spot each player has in their team's formation. Saved spots are kept;
+// anyone without a valid one gets the first open spot, in join order.
+function lineupOf(game, roster) {
+  const perTeam = FORMATS[game.format].playersPerTeam;
+  const taken = { A: new Set(), B: new Set() };
+  const slots = new Map();
+  for (const p of roster) {
+    if (Number.isInteger(p.slot) && p.slot >= 0 && p.slot < perTeam && !taken[p.team].has(p.slot)) {
+      taken[p.team].add(p.slot);
+      slots.set(p.user_id, p.slot);
+    }
+  }
+  for (const p of roster) {
+    if (slots.has(p.user_id)) continue;
+    let slot = 0;
+    while (taken[p.team].has(slot)) slot += 1;
+    taken[p.team].add(slot);
+    slots.set(p.user_id, slot);
+  }
+  return slots;
+}
+
+// Saves lineupOf() for players whose stored spot was missing or clashing, so
+// later moves start from what everyone sees.
+function saveLineup(db, game, roster) {
+  const slots = lineupOf(game, roster);
+  const update = db.prepare('UPDATE game_players SET slot = ? WHERE game_id = ? AND user_id = ?');
+  for (const p of roster) {
+    if (p.slot !== slots.get(p.user_id)) update.run(slots.get(p.user_id), game.id, p.user_id);
+  }
+  return slots;
+}
+
+const ROLE_FOR_PROFILE_POSITION = { Goalkeeper: 'GK', Defender: 'DEF', Midfielder: 'MID', Forward: 'FWD' };
+
+// The open spot that best fits a player's preferred position. Outfield
+// players only go in goal when nothing else is left.
+function bestOpenSlot(spots, taken, position) {
+  const open = spots.map((spot, index) => ({ ...spot, index })).filter((spot) => !taken.has(spot.index));
+  const wanted = ROLE_FOR_PROFILE_POSITION[position];
+  const pick = open.find((s) => s.role === wanted) || open.find((s) => s.role !== 'GK') || open[0];
+  return pick.index;
+}
+
+function takenSlots(roster, slots, team) {
+  return new Set(roster.filter((p) => p.team === team).map((p) => slots.get(p.user_id)));
 }
 
 // ---------------------------------------------------------------------------
@@ -132,6 +192,12 @@ function reportBlocker({ game, roster, user, now }) {
   } else if (game.organizer_id !== user.id && !teamOf(roster, user.id)) {
     return 'Only the organizer or players can report the score';
   }
+  return null;
+}
+
+function lineupBlocker({ game, roster, user }) {
+  if (game.status !== 'scheduled' || game.result_status !== 'none') return 'The lineup is locked';
+  if (!teamOf(roster, user.id)) return 'Join the game to change the lineup';
   return null;
 }
 
@@ -191,11 +257,15 @@ function viewerState(ctx) {
   const { game, roster, user } = ctx;
   const team = teamOf(roster, user.id);
   const captains = captainsOf(roster);
+  const isCaptain = Boolean(team) && captains[team] === user.id;
+  const canEditLineup = !lineupBlocker(ctx);
   return {
     joined: Boolean(team),
     team,
     isOrganizer: game.organizer_id === user.id,
-    isCaptain: Boolean(team) && captains[team] === user.id,
+    isCaptain,
+    canEditLineup,
+    canSetFormation: canEditLineup && isCaptain,
     joinBlockedReason: team ? null : joinBlocker(ctx),
     canJoinTeam: { A: !joinBlocker(ctx, 'A'), B: !joinBlocker(ctx, 'B') },
     canLeave: !leaveBlocker(ctx),
@@ -208,14 +278,18 @@ function viewerState(ctx) {
 function serializeGame(db, game, roster, { now, settings, user = null, distance = null }) {
   const format = FORMATS[game.format];
   const captains = captainsOf(roster);
+  const slots = lineupOf(game, roster);
   const teams = { A: [], B: [] };
   for (const player of roster) {
+    const slot = slots.get(player.user_id);
     teams[player.team].push({
       id: player.user_id,
       displayName: player.display_name,
       skillLevel: player.skill_level,
       position: player.position,
       isCaptain: captains[player.team] === player.user_id,
+      slot,
+      pos: formationSpots(game, player.team)[slot].pos,
     });
   }
   const capacity = format.playersPerTeam * 2;
@@ -229,6 +303,7 @@ function serializeGame(db, game, roster, { now, settings, user = null, distance 
     playerCount: roster.length,
     spotsLeft: capacity - roster.length,
     teams,
+    formations: { A: formationName(game, 'A'), B: formationName(game, 'B') },
     skillLevel: game.skill_level,
     startsAt: game.starts_at,
     endsAt: new Date(endOf(game)).toISOString(),
@@ -333,8 +408,9 @@ function createGame(db, organizer, input, { now, settings }) {
     const result = db
       .prepare(
         `INSERT INTO games (organizer_id, title, format, skill_level, starts_at, duration_minutes, venue_name,
-           address, lat, lng, notes, is_wager, entry_fee_cents, platform_fee_percent, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           address, lat, lng, notes, is_wager, entry_fee_cents, platform_fee_percent, formation_a, formation_b,
+           created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         organizer.id,
@@ -351,6 +427,8 @@ function createGame(db, organizer, input, { now, settings }) {
         input.isWager ? 1 : 0,
         input.isWager ? input.entryFeeCents : 0,
         input.isWager ? settings.wagers.platformFeePercent : 0,
+        DEFAULT_FORMATIONS[input.format],
+        DEFAULT_FORMATIONS[input.format],
         now.toISOString(),
       );
     const gameId = Number(result.lastInsertRowid);
@@ -359,17 +437,27 @@ function createGame(db, organizer, input, { now, settings }) {
   });
 }
 
-function joinGame(db, gameId, user, { team = null }, { now, settings }) {
+// Joins a team, in a chosen spot or the open spot that best fits the
+// player's preferred position.
+function joinGame(db, gameId, user, { team = null, slot = null }, { now, settings }) {
   return transaction(db, () => {
     const game = requireGame(db, gameId);
     const roster = getRoster(db, gameId);
     assertAllowed(joinBlocker({ db, game, roster, user, now, settings }, team));
+    if (slot !== null && !team) throw new HttpError(400, 'Pick a team for that spot');
     const counts = teamCounts(roster);
     const assigned = team || (counts.B < counts.A ? 'B' : 'A');
-    db.prepare('INSERT INTO game_players (game_id, user_id, team, joined_at) VALUES (?, ?, ?, ?)').run(
+    const spots = formationSpots(game, assigned);
+    const taken = takenSlots(roster, saveLineup(db, game, roster), assigned);
+    if (slot !== null) {
+      if (slot >= spots.length) throw new HttpError(400, 'That spot is not in the formation');
+      if (taken.has(slot)) throw new HttpError(409, `The ${spots[slot].pos} spot is already taken`);
+    }
+    db.prepare('INSERT INTO game_players (game_id, user_id, team, slot, joined_at) VALUES (?, ?, ?, ?, ?)').run(
       gameId,
       user.id,
       assigned,
+      slot ?? bestOpenSlot(spots, taken, user.position),
       now.toISOString(),
     );
     if (game.is_wager) {
@@ -392,6 +480,48 @@ function leaveGame(db, gameId, user, { now }) {
     assertAllowed(leaveBlocker({ game, roster: getRoster(db, gameId), user, now }));
     db.prepare('DELETE FROM game_players WHERE game_id = ? AND user_id = ?').run(gameId, user.id);
     if (game.is_wager) ledger.refundPlayer(db, gameId, user.id, `Refund — left match: ${game.title}`, now);
+  });
+}
+
+// Moves a player to another spot on their team. Anyone can move themselves
+// into an open spot; captains can also move teammates and swap two players.
+function movePlayer(db, gameId, user, { playerId = null, slot }) {
+  transaction(db, () => {
+    const game = requireGame(db, gameId);
+    const roster = getRoster(db, gameId);
+    assertAllowed(lineupBlocker({ game, roster, user }));
+    const team = teamOf(roster, user.id);
+    const isCaptain = captainsOf(roster)[team] === user.id;
+    const targetId = playerId ?? user.id;
+    if (teamOf(roster, targetId) !== team) throw new HttpError(409, 'You can only move players on your own team');
+    if (targetId !== user.id && !isCaptain) throw new HttpError(409, 'Only your captain can move teammates');
+    const spots = formationSpots(game, team);
+    if (slot >= spots.length) throw new HttpError(400, 'That spot is not in the formation');
+
+    const slots = saveLineup(db, game, roster);
+    const occupant = roster.find((p) => p.team === team && slots.get(p.user_id) === slot);
+    const update = db.prepare('UPDATE game_players SET slot = ? WHERE game_id = ? AND user_id = ?');
+    if (occupant && occupant.user_id !== targetId) {
+      if (!isCaptain) throw new HttpError(409, `The ${spots[slot].pos} spot is taken — ask your captain to swap you`);
+      update.run(slots.get(targetId), gameId, occupant.user_id);
+    }
+    update.run(slot, gameId, targetId);
+  });
+}
+
+// Captains pick their team's formation. Players keep their spot numbers, so
+// each one takes the matching position in the new shape.
+function setFormation(db, gameId, user, { team, formation }) {
+  transaction(db, () => {
+    const game = requireGame(db, gameId);
+    const roster = getRoster(db, gameId);
+    assertAllowed(lineupBlocker({ game, roster, user }));
+    if (captainsOf(roster)[team] !== user.id) throw new HttpError(409, `Only the Team ${team} captain can change its formation`);
+    if (!Object.hasOwn(FORMATIONS[game.format], formation)) {
+      throw new HttpError(400, `${formation} isn't a ${game.format} formation`);
+    }
+    saveLineup(db, game, roster);
+    db.prepare(`UPDATE games SET ${team === 'A' ? 'formation_a' : 'formation_b'} = ? WHERE id = ?`).run(formation, gameId);
   });
 }
 
@@ -549,6 +679,8 @@ module.exports = {
   createGame,
   joinGame,
   leaveGame,
+  movePlayer,
+  setFormation,
   cancelGame,
   reportResult,
   confirmResult,

@@ -28,6 +28,46 @@ const FORMATS = Object.freeze({
   }),
 });
 
+const ROLE_BY_POSITION = {
+  GK: 'GK',
+  CB: 'DEF', LCB: 'DEF', RCB: 'DEF', LB: 'DEF', RB: 'DEF', LWB: 'DEF', RWB: 'DEF',
+  CDM: 'MID', LDM: 'MID', RDM: 'MID', CM: 'MID', LCM: 'MID', RCM: 'MID', LM: 'MID', RM: 'MID',
+  CAM: 'MID', LAM: 'MID', RAM: 'MID',
+  ST: 'FWD', LS: 'FWD', RS: 'FWD', LW: 'FWD', RW: 'FWD', LF: 'FWD', RF: 'FWD',
+};
+
+function spots(list) {
+  return Object.freeze(list.map(([pos, x, y]) => Object.freeze({ pos, role: ROLE_BY_POSITION[pos], x, y })));
+}
+
+// Formations each team can line up in. A spot is a position plus where it sits
+// on the lineup board, in percent: x across (0 = left touchline, 100 = right)
+// and y down the board (0 = top edge, past halfway; 100 = own goal line).
+// Every formation for a format has exactly playersPerTeam spots.
+// prettier-ignore
+const FORMATIONS = Object.freeze({
+  '3v3': Object.freeze({
+    '1-2': spots([['CB', 50, 70], ['LF', 27, 30], ['RF', 73, 30]]),
+    '2-1': spots([['LCB', 28, 66], ['RCB', 72, 66], ['ST', 50, 26]]),
+    '1-1-1': spots([['CB', 50, 74], ['CM', 50, 50], ['ST', 50, 24]]),
+    'GK-2': spots([['GK', 50, 88], ['LF', 28, 40], ['RF', 72, 40]]),
+  }),
+  '8v8': Object.freeze({
+    '3-3-1': spots([['GK', 50, 88], ['LB', 18, 67], ['CB', 50, 69], ['RB', 82, 67], ['LM', 18, 44], ['CM', 50, 47], ['RM', 82, 44], ['ST', 50, 18]]),
+    '3-2-2': spots([['GK', 50, 88], ['LB', 18, 67], ['CB', 50, 69], ['RB', 82, 67], ['LCM', 33, 46], ['RCM', 67, 46], ['LS', 33, 20], ['RS', 67, 20]]),
+    '2-3-2': spots([['GK', 50, 88], ['LCB', 32, 69], ['RCB', 68, 69], ['LM', 15, 46], ['CM', 50, 48], ['RM', 85, 46], ['LS', 33, 20], ['RS', 67, 20]]),
+    '3-1-3': spots([['GK', 50, 88], ['LB', 18, 67], ['CB', 50, 69], ['RB', 82, 67], ['CDM', 50, 48], ['LW', 17, 26], ['ST', 50, 17], ['RW', 83, 26]]),
+  }),
+  '11v11': Object.freeze({
+    '4-3-3': spots([['GK', 50, 88], ['LB', 13, 66], ['LCB', 37, 69], ['RCB', 63, 69], ['RB', 87, 66], ['LCM', 27, 45], ['CM', 50, 50], ['RCM', 73, 45], ['LW', 15, 24], ['ST', 50, 15], ['RW', 85, 24]]),
+    '4-4-2': spots([['GK', 50, 88], ['LB', 13, 66], ['LCB', 37, 69], ['RCB', 63, 69], ['RB', 87, 66], ['LM', 13, 45], ['LCM', 37, 49], ['RCM', 63, 49], ['RM', 87, 45], ['LS', 36, 19], ['RS', 64, 19]]),
+    '4-2-3-1': spots([['GK', 50, 88], ['LB', 13, 66], ['LCB', 37, 69], ['RCB', 63, 69], ['RB', 87, 66], ['LDM', 37, 50], ['RDM', 63, 50], ['LAM', 15, 30], ['CAM', 50, 31], ['RAM', 85, 30], ['ST', 50, 12]]),
+    '3-5-2': spots([['GK', 50, 89], ['LCB', 27, 68], ['CB', 50, 70], ['RCB', 73, 68], ['LWB', 12, 42], ['LCM', 31, 47], ['CDM', 50, 51], ['RCM', 69, 47], ['RWB', 88, 42], ['LS', 37, 18], ['RS', 63, 18]]),
+  }),
+});
+
+const DEFAULT_FORMATIONS = Object.freeze({ '3v3': '1-2', '8v8': '3-3-1', '11v11': '4-3-3' });
+
 const SKILL_LEVELS = Object.freeze(['any', 'beginner', 'intermediate', 'advanced']);
 
 // prettier-ignore
@@ -77,4 +117,4 @@ function loadSettings(env = process.env) {
   };
 }
 
-module.exports = { FORMATS, SKILL_LEVELS, US_STATES, loadSettings };
+module.exports = { FORMATS, FORMATIONS, DEFAULT_FORMATIONS, SKILL_LEVELS, US_STATES, loadSettings };

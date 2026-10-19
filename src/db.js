@@ -48,6 +48,8 @@ CREATE TABLE IF NOT EXISTS games (
   cancel_reason        TEXT,
   result_status        TEXT NOT NULL DEFAULT 'none'
                        CHECK (result_status IN ('none', 'pending', 'disputed', 'confirmed')),
+  formation_a          TEXT,
+  formation_b          TEXT,
   score_a              INTEGER,
   score_b              INTEGER,
   winner               TEXT CHECK (winner IN ('A', 'B', 'draw')),
@@ -63,6 +65,7 @@ CREATE TABLE IF NOT EXISTS game_players (
   game_id   INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
   user_id   INTEGER NOT NULL REFERENCES users(id),
   team      TEXT NOT NULL CHECK (team IN ('A', 'B')),
+  slot      INTEGER,          -- index into the team's formation
   joined_at TEXT NOT NULL,
   PRIMARY KEY (game_id, user_id)
 );
@@ -87,12 +90,31 @@ CREATE INDEX IF NOT EXISTS transactions_by_user ON transactions (user_id, id);
 CREATE INDEX IF NOT EXISTS transactions_by_game ON transactions (game_id);
 `;
 
+// Columns added after the first version, so databases created before them
+// still open.
+const ADDED_COLUMNS = [
+  ['games', 'formation_a', 'TEXT'],
+  ['games', 'formation_b', 'TEXT'],
+  ['game_players', 'slot', 'INTEGER'],
+];
+
+function addMissingColumns(db) {
+  for (const [table, column, type] of ADDED_COLUMNS) {
+    const exists = db
+      .prepare(`PRAGMA table_info(${table})`)
+      .all()
+      .some((c) => c.name === column);
+    if (!exists) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+  }
+}
+
 function openDatabase(file) {
   if (file !== ':memory:') fs.mkdirSync(path.dirname(file), { recursive: true });
   const db = new DatabaseSync(file);
   if (file !== ':memory:') db.exec('PRAGMA journal_mode = WAL');
   db.exec('PRAGMA foreign_keys = ON');
   db.exec(SCHEMA);
+  addMissingColumns(db);
   return db;
 }
 

@@ -1,7 +1,7 @@
 'use strict';
 
 const express = require('express');
-const { FORMATS, SKILL_LEVELS, US_STATES } = require('../config');
+const { FORMATS, FORMATIONS, SKILL_LEVELS, US_STATES } = require('../config');
 const { HttpError } = require('../http-error');
 const { requireAuth, requireAdmin } = require('../auth');
 const v = require('../validate');
@@ -38,6 +38,7 @@ router.get('/formats', (req, res) => {
   const { wagers, paymentsMode } = req.app.locals.settings;
   res.json({
     formats: Object.values(FORMATS),
+    formations: FORMATIONS,
     skillLevels: SKILL_LEVELS,
     states: US_STATES,
     wagers: {
@@ -126,7 +127,26 @@ router.post('/games', requireAuth, (req, res) => {
 router.post('/games/:id/join', requireAuth, (req, res) => {
   const { db, now, settings } = context(req);
   const team = v.oneOf(req.body.team, 'Team', ['A', 'B'], { optional: true });
-  games.joinGame(db, gameId(req), req.user, { team }, { now, settings });
+  const slot = v.integer(req.body.slot, 'Spot', { min: 0, max: 10, optional: true });
+  games.joinGame(db, gameId(req), req.user, { team, slot }, { now, settings });
+  detail(req, res);
+});
+
+router.post('/games/:id/lineup/move', requireAuth, (req, res) => {
+  const { db } = context(req);
+  games.movePlayer(db, gameId(req), req.user, {
+    playerId: v.integer(req.body.playerId, 'Player', { min: 1, optional: true }),
+    slot: v.integer(req.body.slot, 'Spot', { min: 0, max: 10 }),
+  });
+  detail(req, res);
+});
+
+router.post('/games/:id/lineup/formation', requireAuth, (req, res) => {
+  const { db } = context(req);
+  games.setFormation(db, gameId(req), req.user, {
+    team: v.oneOf(req.body.team, 'Team', ['A', 'B']),
+    formation: v.string(req.body.formation, 'Formation', { max: 10 }),
+  });
   detail(req, res);
 });
 

@@ -476,12 +476,6 @@ textarea {
   color: var(--gold-ink);
 }
 
-.badge.win {
-  background: var(--gold);
-  color: #3d2c00;
-  margin-left: 0.4rem;
-}
-
 .phase {
   background: var(--surface-2);
   color: var(--muted);
@@ -508,34 +502,6 @@ textarea {
 .area {
   font-size: 0.82rem;
   font-weight: 600;
-  color: var(--muted);
-}
-
-.avatar {
-  flex: none;
-  display: inline-grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  font-size: 0.75rem;
-  font-weight: 800;
-  color: #fff;
-  background: #6b7f73;
-}
-
-.hue-0 { background: #c2410c; }
-.hue-1 { background: #1d4ed8; }
-.hue-2 { background: #047857; }
-.hue-3 { background: #7c3aed; }
-.hue-4 { background: #be185d; }
-.hue-5 { background: #0e7490; }
-.hue-6 { background: #a16207; }
-.hue-7 { background: #4d7c0f; }
-
-.avatar-empty {
-  background: transparent;
-  border: 2px dashed var(--border);
   color: var(--muted);
 }
 
@@ -1030,101 +996,257 @@ textarea {
   }
 }
 
-.teams {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
-}
+/* ---------- Lineup board ---------- */
 
-@media (max-width: 480px) {
-  .teams {
-    grid-template-columns: 1fr;
-  }
-}
-
-.team {
-  border-radius: var(--radius-small);
-  background: var(--surface-2);
-  padding: 0.75rem;
+.lineup-bar {
   display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-}
-
-.team-a {
-  border-top: 4px solid #e9ecef;
-}
-
-.team-b {
-  border-top: 4px solid #343a40;
-}
-
-.team.is-winner {
-  outline: 2px solid var(--gold);
-}
-
-.team-head {
-  display: flex;
+  align-items: center;
   justify-content: space-between;
-  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
 }
 
-.team-head h3 {
-  margin: 0;
-  display: flex;
-  align-items: center;
+.tab-count {
+  margin-left: 0.15rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
 }
 
-.roster {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+.formation-label,
+.formation-select {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.formation-label {
+  padding: 0.3rem 0.85rem;
+  border-radius: 999px;
+  background: var(--surface-2);
+}
+
+.formation-select {
+  width: auto;
+  min-height: 36px;
+  padding: 0.25rem 0.6rem;
+}
+
+.lineup-board {
+  --kit: #f1f3f5;
+  --kit-ink: #15201a;
+  --kit-trim: #0b7a4b;
+  position: relative;
+  aspect-ratio: 3 / 4;
+  max-width: 400px;
+  margin: 0 auto;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: radial-gradient(ellipse at 50% 45%, #2b9553, #16603a);
+}
+
+.lineup-board.kit-b {
+  --kit: #1f2933;
+  --kit-ink: #ffffff;
+  --kit-trim: #f2b100;
+}
+
+.lineup-board.is-winner {
+  box-shadow: 0 0 0 3px var(--gold);
+}
+
+.board-pitch {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.board-stripes rect {
+  fill: rgba(255, 255, 255, 0.05);
+}
+
+.board-lines {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.7);
+  stroke-width: 1.5;
+}
+
+.board-lines * {
+  vector-effect: non-scaling-stroke;
+}
+
+.board-lines .board-dot {
+  fill: rgba(255, 255, 255, 0.8);
+}
+
+.spot {
+  position: absolute;
+  transform: translate(-50%, -50%);
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
-}
-
-.roster li {
-  display: flex;
   align-items: center;
-  gap: 0.5rem;
-  min-width: 0;
+  width: 76px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.roster li.is-me .player-name {
-  font-weight: 800;
+.spot:disabled {
+  cursor: default;
 }
 
-.player-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.spot:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+  border-radius: 8px;
 }
 
-.captain {
-  flex: none;
-  display: inline-grid;
+.spot-pos,
+.spot-name {
+  border-radius: 4px;
+  background: rgba(8, 20, 13, 0.72);
+}
+
+.spot-pos {
+  margin-bottom: 2px;
+  padding: 2px 5px;
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  line-height: 1;
+}
+
+.spot-kit {
+  position: relative;
+  display: grid;
   place-items: center;
-  width: 20px;
-  height: 20px;
+  width: 42px;
+  height: 42px;
+  transition: transform 0.12s;
+}
+
+.spot:not(:disabled):hover .spot-kit {
+  transform: scale(1.06);
+}
+
+.shirt {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.35));
+}
+
+.shirt path {
+  fill: var(--kit);
+  stroke: var(--kit-trim);
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+}
+
+.spot-initials {
+  position: relative;
+  margin-top: 6px;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  color: var(--kit-ink);
+}
+
+.spot-captain {
+  position: absolute;
+  top: -2px;
+  right: -5px;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   background: var(--gold);
   color: #3d2c00;
-  font-size: 0.7rem;
+  font-size: 0.6rem;
   font-weight: 900;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
-.player-pos {
-  margin-left: auto;
-  font-size: 0.75rem;
-  color: var(--muted);
+.spot-name {
+  max-width: 68px;
+  margin-top: 2px;
+  padding: 1px 5px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.2;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.open-spot {
-  color: var(--muted);
+.spot.is-open .shirt path {
+  fill: rgba(255, 255, 255, 0.08);
+  stroke: rgba(255, 255, 255, 0.7);
+  stroke-dasharray: 2.5 2;
+}
+
+.spot.is-open .spot-initials {
+  color: #fff;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.spot.is-open .spot-name {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.85);
   font-weight: 600;
-  font-size: 0.92rem;
+}
+
+.spot.is-open:not(:disabled) .shirt path {
+  stroke: #ffd60a;
+}
+
+.spot.is-open:not(:disabled) .spot-name {
+  color: #ffd60a;
+}
+
+.spot.is-me .spot-name {
+  background: var(--gold);
+  color: #3d2c00;
+}
+
+.spot.is-selected .shirt path {
+  stroke: #ffd60a;
+  stroke-width: 2.6;
+}
+
+.spot.is-selected .spot-kit {
+  animation: spot-lift 0.9s ease-in-out infinite alternate;
+}
+
+@keyframes spot-lift {
+  to {
+    transform: translateY(-3px) scale(1.06);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spot.is-selected .spot-kit {
+    animation: none;
+  }
+}
+
+.lineup-hint {
+  margin: 0.6rem 0 0.75rem;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.lineup-hint:empty {
+  display: none;
 }
 
 .details {

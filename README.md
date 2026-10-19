@@ -19,7 +19,16 @@ Any game can be **casual** (free) or a **wager match**.
   format and by casual or wager games. See results as a list or on a map.
 - **Host a game.** Pick the format, date, time, and field (search an address, tap the map, or use "I'm at the field").
   Set a skill level and notes.
-- **Join a team.** Each game has Team A and Team B. The first player on each team is that team's captain.
+- **Pick a position on the lineup board.** Each game has Team A and Team B, each shown in formation on a pitch with
+  a shirt in every spot. Players tap an open spot to join in that position, or to move there later. A player who joins
+  without picking a spot is placed in one that matches the position on their profile. The first player on each team is
+  its captain. Captains choose the formation and can move or swap teammates. Lineups lock once a score is reported.
+
+  | Format | Formations                          |
+  | ------ | ----------------------------------- |
+  | 3v3    | 1-2, 2-1, 1-1-1, GK-2               |
+  | 8v8    | 3-3-1, 3-2-2, 2-3-2, 3-1-3          |
+  | 11v11  | 4-3-3, 4-4-2, 4-2-3-1, 3-5-2        |
 - **Report scores.** After kickoff, players report the final score. Their stats (W-D-L, winnings) update on their
   profile.
 - **Wallet.** Add funds, pay entry fees, receive winnings, and withdraw. Every transaction is listed.
@@ -114,7 +123,7 @@ src/
   db.js                database schema
   auth.js              passwords (scrypt) and login sessions
   payments.js          payment provider boundary (demo mode)
-  services/games.js    game rules: joining, captains, results, settlement, maintenance
+  services/games.js    game rules: joining, lineups, captains, results, settlement, maintenance
   services/wagers.js   payout math and wager eligibility
   services/ledger.js   wallet balances, escrow, refunds
   routes/              HTTP API

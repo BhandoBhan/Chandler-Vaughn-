@@ -112,16 +112,13 @@ export function phaseBadge(phase) {
   return h('span', { class: `badge phase phase-${phase}` }, PHASE_LABELS[phase]);
 }
 
-export function avatar(name) {
-  const initials = name
+export function initials(name) {
+  return name
     .split(/\s+/)
     .slice(0, 2)
     .map((part) => part[0] || '')
     .join('')
     .toUpperCase();
-  let hash = 0;
-  for (const ch of name) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
-  return h('span', { class: `avatar hue-${hash % 8}`, 'aria-hidden': 'true' }, initials);
 }
 
 let toastTimer;
